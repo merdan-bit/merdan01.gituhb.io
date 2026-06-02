@@ -80,6 +80,7 @@
             align-items: center;
             gap: 15px;
             transition: all 0.3s ease;
+            border: 1px solid var(--bg-hover);
         }
         .stat-card:hover { transform: translateY(-3px); border-color: var(--primary); }
         .stat-icon {
@@ -95,6 +96,7 @@
         .stat-icon.pink { background: rgba(236, 72, 153, 0.2); color: var(--secondary); }
         .stat-icon.green { background: rgba(34, 197, 94, 0.2); color: var(--success); }
         .stat-info h4 { font-size: 1.5rem; }
+        .stat-info p { color: var(--text-muted); font-size: 0.9rem; }
         .controls {
             display: flex;
             gap: 15px;
@@ -353,14 +355,14 @@
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-headphones"></i> Aydym Dünyäsi</h1>
-            <p>Aýdymlary ýükläň, diňläň we paýlaşyň | Her kim ýükläp, diňläp we indirip bilýär</p>
+            <p>Aýdymlary ýükläň, diňläň we paýlaşyň | Hemmeler ýükläp, diňläp we indirip bilýär</p>
         </div>
         
         <div class="upload-section" id="dropZone">
             <i class="fas fa-cloud-upload-alt"></i>
             <h3>Aýdym Ýükle</h3>
             <p>MP3, WAV, OGG faýllaryny süýräň ýa-da saýlaň (Hemmeler ýükläp bilýär)</p>
-            <input type="file" id="fileInput" accept="audio/*" multiple style="display:none">
+            <input type="file" id="fileInput" accept="audio/*" multiple>
             <button class="upload-btn" id="uploadBtn">
                 <i class="fas fa-plus"></i> Aýdym Saýla
             </button>
@@ -397,7 +399,6 @@
                 <button class="filter-btn" data-filter="recent"><i class="fas fa-clock"></i> Soňky Goşulan</button>
                 <button class="filter-btn" data-filter="name"><i class="fas fa-sort-alpha-down"></i> Ady</button>
                 <button class="filter-btn" data-filter="artist"><i class="fas fa-user"></i> Aýdymçy</button>
-                <button class="filter-btn" data-filter="popular"><i class="fas fa-fire"></i> Meşhur</button>
             </div>
         </div>
         
@@ -455,78 +456,76 @@
         let audio = new Audio();
         let currentFilter = 'all';
         let searchQuery = '';
-        let playCounts = JSON.parse(localStorage.getItem('playCounts')) || {};
 
         // ============ INDEXEDDB BAŞLAT ============
         const request = indexedDB.open('MusicLibraryGlobal', 2);
         
-        request.onerror = () => console.log('DB error');
-        request.onsuccess = (e) => {
+        request.onerror = function() {
+            console.log('DB error');
+            showToast('Veritabanı hatası!', 'error');
+        };
+        
+        request.onsuccess = function(e) {
             db = e.target.result;
+            console.log('DB başarıyla açıldı');
             loadSongsFromDB();
         };
         
-        request.onupgradeneeded = (e) => {
+        request.onupgradeneeded = function(e) {
             db = e.target.result;
             if (!db.objectStoreNames.contains('songs')) {
                 const store = db.createObjectStore('songs', { keyPath: 'id' });
                 store.createIndex('dateAdded', 'dateAdded');
-                store.createIndex('playCount', 'playCount');
+                console.log('ObjectStore oluşturuldu');
             }
         };
 
         // ============ VERİTABANI İŞLEMLERİ ============
         function loadSongsFromDB() {
+            if (!db) return;
             const transaction = db.transaction(['songs'], 'readonly');
             const store = transaction.objectStore('songs');
             const getAll = store.getAll();
             
-            getAll.onsuccess = () => {
+            getAll.onsuccess = function() {
                 songs = getAll.result || [];
-                songs.forEach(song => {
-                    if (!song.playCount) song.playCount = playCounts[song.id] || 0;
-                });
+                console.log('Şarkılar yüklendi:', songs.length);
                 renderSongs();
                 updateStats();
+            };
+            
+            getAll.onerror = function() {
+                console.log('Şarkılar yüklenemedi');
             };
         }
 
         function saveSongToDB(song) {
+            if (!db) return;
             const transaction = db.transaction(['songs'], 'readwrite');
             const store = transaction.objectStore('songs');
             store.add(song);
             
-            transaction.oncomplete = () => {
+            transaction.oncomplete = function() {
                 songs.push(song);
                 renderSongs();
                 updateStats();
                 showToast(`✨ "${song.title}" üstünlikli ýüklendi!`, 'success');
+                console.log('Şarkı kaydedildi:', song.title);
+            };
+            
+            transaction.onerror = function() {
+                showToast('Şarkı kaydedilemedi!', 'error');
             };
         }
 
-        function updatePlayCount(id) {
-            playCounts[id] = (playCounts[id] || 0) + 1;
-            localStorage.setItem('playCounts', JSON.stringify(playCounts));
-            
-            const song = songs.find(s => s.id === id);
-            if (song) {
-                song.playCount = playCounts[id];
-                const transaction = db.transaction(['songs'], 'readwrite');
-                const store = transaction.objectStore('songs');
-                store.put(song);
-            }
-            renderSongs();
-        }
-
         function deleteSongFromDB(id) {
+            if (!db) return;
             const transaction = db.transaction(['songs'], 'readwrite');
             const store = transaction.objectStore('songs');
             store.delete(id);
             
-            transaction.oncomplete = () => {
+            transaction.oncomplete = function() {
                 songs = songs.filter(s => s.id !== id);
-                delete playCounts[id];
-                localStorage.setItem('playCounts', JSON.stringify(playCounts));
                 if (currentSongIndex !== -1 && songs[currentSongIndex]?.id === id) {
                     pauseSong();
                     currentSongIndex = -1;
@@ -559,20 +558,22 @@
         const nowPlayingBadge = document.getElementById('nowPlayingBadge');
         const nowPlayingText = document.getElementById('nowPlayingText');
 
-        // ============ AYDYM YUKLEME ============
+        // ============ AYDYM YUKLEME - DÜZELTİLDİ ============
         function handleFiles(files) {
-            Array.from(files).forEach(file => {
+            console.log('Seçilen dosya sayısı:', files.length);
+            
+            Array.from(files).forEach(function(file) {
                 if (!file.type.startsWith('audio/')) {
                     showToast('Diňe ses faýllary ýükläp bolýar!', 'error');
                     return;
                 }
                 
                 const reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = function(e) {
                     const audioTemp = new Audio();
                     audioTemp.src = e.target.result;
                     
-                    audioTemp.addEventListener('loadedmetadata', () => {
+                    audioTemp.addEventListener('loadedmetadata', function() {
                         let title = file.name.replace(/\.[^/.]+$/, '');
                         let artist = 'Näbelli Aýdymçy';
                         
@@ -589,34 +590,58 @@
                             fileData: e.target.result,
                             duration: audioTemp.duration,
                             dateAdded: new Date().toISOString(),
-                            fileName: file.name,
-                            playCount: 0,
-                            uploadedBy: 'Kullanıcı'
+                            fileName: file.name
                         };
                         
                         saveSongToDB(song);
                     });
+                    
+                    audioTemp.addEventListener('error', function() {
+                        showToast('Faýl ýüklenmedi: ' + file.name, 'error');
+                    });
                 };
+                
+                reader.onerror = function() {
+                    showToast('Faýl okalmady: ' + file.name, 'error');
+                };
+                
                 reader.readAsDataURL(file);
             });
         }
 
-        uploadBtn.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        // Buton tıklama - DÜZELTİLDİ
+        uploadBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Butona tıklandı');
+            fileInput.click();
+        });
         
-        dropZone.addEventListener('dragover', (e) => {
+        // Dosya seçildiğinde
+        fileInput.addEventListener('change', function(e) {
+            console.log('Dosya seçildi');
+            if (e.target.files.length > 0) {
+                handleFiles(e.target.files);
+                fileInput.value = ''; // Aynı dosyayı tekrar seçebilmek için
+            }
+        });
+        
+        // Drag and drop
+        dropZone.addEventListener('dragover', function(e) {
             e.preventDefault();
             dropZone.classList.add('dragover');
         });
         
-        dropZone.addEventListener('dragleave', () => {
+        dropZone.addEventListener('dragleave', function() {
             dropZone.classList.remove('dragover');
         });
         
-        dropZone.addEventListener('drop', (e) => {
+        dropZone.addEventListener('drop', function(e) {
             e.preventDefault();
             dropZone.classList.remove('dragover');
-            handleFiles(e.dataTransfer.files);
+            if (e.dataTransfer.files.length > 0) {
+                handleFiles(e.dataTransfer.files);
+            }
         });
 
         // ============ ARAYUZ RENDER ============
@@ -637,8 +662,6 @@
                 filtered.sort((a, b) => a.title.localeCompare(b.title));
             } else if (currentFilter === 'artist') {
                 filtered.sort((a, b) => a.artist.localeCompare(b.artist));
-            } else if (currentFilter === 'popular') {
-                filtered.sort((a, b) => (b.playCount || 0) - (a.playCount || 0));
             }
             
             if (!filtered.length) {
@@ -655,7 +678,6 @@
             musicGrid.innerHTML = filtered.map(song => {
                 const index = songs.findIndex(s => s.id === song.id);
                 const isCurrent = index === currentSongIndex;
-                const playCount = song.playCount || 0;
                 return `
                     <div class="music-card ${isCurrent ? 'playing' : ''}">
                         <div class="card-visual" onclick="playSongById(${song.id})">
@@ -670,7 +692,6 @@
                             <div class="card-title" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</div>
                             <div class="card-artist">
                                 <i class="fas fa-user"></i> ${escapeHtml(song.artist)}
-                                ${playCount > 0 ? `<span style="margin-left: 10px;"><i class="fas fa-headphones"></i> ${playCount}</span>` : ''}
                             </div>
                             <div class="card-meta">
                                 <span class="card-duration"><i class="fas fa-clock"></i> ${formatTime(song.duration)}</span>
@@ -692,6 +713,7 @@
         }
         
         function escapeHtml(str) {
+            if (!str) return '';
             return str.replace(/[&<>]/g, function(m) {
                 if (m === '&') return '&amp;';
                 if (m === '<') return '&lt;';
@@ -701,15 +723,14 @@
         }
         
         // ============ AYDYM KONTROLLERI ============
-        window.playSongById = (id) => {
+        window.playSongById = function(id) {
             const index = songs.findIndex(s => s.id === id);
             if (index !== -1) {
                 playSong(index);
-                updatePlayCount(id);
             }
         };
         
-        window.downloadSong = (id) => {
+        window.downloadSong = function(id) {
             const song = songs.find(s => s.id === id);
             if (!song) return;
             const a = document.createElement('a');
@@ -721,7 +742,7 @@
             showToast(`🎵 "${song.title}" ýüklenýär...`, 'success');
         };
         
-        window.deleteSongById = (id) => {
+        window.deleteSongById = function(id) {
             if (confirm('Bu aýdymy pozmak isleýändigiňize ynanýarsyňyzmy?')) {
                 deleteSongFromDB(id);
             }
@@ -771,52 +792,56 @@
         }
         
         playBtn.addEventListener('click', togglePlay);
-        prevBtn.addEventListener('click', () => {
+        prevBtn.addEventListener('click', function() {
             if (!songs.length) return;
             playSong((currentSongIndex - 1 + songs.length) % songs.length);
         });
-        nextBtn.addEventListener('click', () => {
+        nextBtn.addEventListener('click', function() {
             if (!songs.length) return;
             playSong((currentSongIndex + 1) % songs.length);
         });
         
-        audio.addEventListener('timeupdate', () => {
+        audio.addEventListener('timeupdate', function() {
             if (!audio.duration) return;
             progressFill.style.width = ((audio.currentTime / audio.duration) * 100) + '%';
             currentTimeEl.textContent = formatTime(audio.currentTime);
             totalTimeEl.textContent = formatTime(audio.duration);
         });
         
-        audio.addEventListener('ended', () => nextBtn.click());
+        audio.addEventListener('ended', function() {
+            nextBtn.click();
+        });
         
-        progressBar.addEventListener('click', (e) => {
+        progressBar.addEventListener('click', function(e) {
             const rect = progressBar.getBoundingClientRect();
             const pos = (e.clientX - rect.left) / rect.width;
             audio.currentTime = pos * audio.duration;
         });
         
-        volumeSlider.addEventListener('input', (e) => {
+        volumeSlider.addEventListener('input', function(e) {
             audio.volume = e.target.value / 100;
             if (audio.volume === 0) volumeIcon.className = 'fas fa-volume-mute';
             else if (audio.volume < 0.5) volumeIcon.className = 'fas fa-volume-down';
             else volumeIcon.className = 'fas fa-volume-up';
         });
         
-        searchInput.addEventListener('input', (e) => {
+        searchInput.addEventListener('input', function(e) {
             searchQuery = e.target.value;
             renderSongs();
         });
         
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.filter-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.filter-btn').forEach(function(b) {
+                    b.classList.remove('active');
+                });
                 btn.classList.add('active');
                 currentFilter = btn.dataset.filter;
                 renderSongs();
             });
         });
         
-        nowPlayingBadge.addEventListener('click', () => {
+        nowPlayingBadge.addEventListener('click', function() {
             playerBar.classList.add('active');
         });
         
@@ -825,4 +850,6 @@
             document.getElementById('totalSongs').textContent = songs.length;
             const uniqueArtists = new Set(songs.map(s => s.artist));
             document.getElementById('totalArtists').textContent = uniqueArtists.size;
-            const totalSeconds = songs.reduce((acc
+            const totalSeconds = songs.reduce(function(acc, s) {
+                return acc + (s.duration || 0);
+            }, 0);

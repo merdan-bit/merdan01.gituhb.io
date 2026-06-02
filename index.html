@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aydym Tekjesi - Professional</title>
+    <title>Aydym Dünyäsi - Supabase ile Bulut Müzik</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -24,11 +25,20 @@
             background: linear-gradient(135deg, var(--bg-dark) 0%, #1a1a2e 100%);
             color: var(--text);
             min-height: 100vh;
-            overflow-x: hidden;
         }
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; padding: 40px 20px; }
-        .header h1 { font-size: 3rem; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header h1 { 
+            font-size: 3rem; 
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        @keyframes glow {
+            from { text-shadow: 0 0 10px rgba(99,102,241,0.5); }
+            to { text-shadow: 0 0 20px rgba(236,72,153,0.5); }
+        }
         .upload-section {
             background: var(--bg-card);
             border-radius: 20px;
@@ -40,7 +50,7 @@
             transition: all 0.3s ease;
         }
         .upload-section:hover { border-color: var(--secondary); transform: translateY(-2px); }
-        .upload-section.dragover { background: rgba(99, 102, 241, 0.1); border-color: var(--secondary); }
+        .upload-section.dragover { background: rgba(99, 102, 241, 0.1); }
         .upload-section i { font-size: 3rem; color: var(--primary); margin-bottom: 15px; }
         .upload-btn {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
@@ -51,7 +61,9 @@
             cursor: pointer;
             font-size: 1rem;
             margin-top: 15px;
+            transition: all 0.3s ease;
         }
+        .upload-btn:hover { transform: scale(1.05); box-shadow: 0 5px 20px rgba(99,102,241,0.4); }
         .stats {
             display: flex;
             gap: 20px;
@@ -67,7 +79,10 @@
             display: flex;
             align-items: center;
             gap: 15px;
+            border: 1px solid var(--bg-hover);
+            transition: all 0.3s ease;
         }
+        .stat-card:hover { transform: translateY(-3px); border-color: var(--primary); }
         .stat-icon {
             width: 50px;
             height: 50px;
@@ -90,6 +105,7 @@
         .search-box {
             flex: 1;
             min-width: 250px;
+            position: relative;
         }
         .search-box input {
             width: 100%;
@@ -100,6 +116,8 @@
             color: var(--text);
             font-size: 1rem;
         }
+        .search-box input:focus { outline: none; border-color: var(--primary); }
+        .search-box i { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
         .filter-group { display: flex; gap: 10px; flex-wrap: wrap; }
         .filter-btn {
             padding: 12px 20px;
@@ -108,12 +126,13 @@
             color: var(--text-muted);
             border-radius: 12px;
             cursor: pointer;
+            transition: all 0.3s ease;
         }
-        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .filter-btn:hover, .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
         .music-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
             margin-bottom: 100px;
         }
         .music-card {
@@ -123,8 +142,8 @@
             border: 1px solid var(--bg-hover);
             transition: all 0.3s ease;
         }
-        .music-card:hover { transform: translateY(-5px); border-color: var(--primary); }
-        .music-card.playing { border-color: var(--secondary); box-shadow: 0 0 30px rgba(236, 72, 153, 0.3); }
+        .music-card:hover { transform: translateY(-8px); box-shadow: 0 15px 40px rgba(0,0,0,0.3); border-color: var(--primary); }
+        .music-card.playing { border-color: var(--secondary); box-shadow: 0 0 30px rgba(236,72,153,0.3); }
         .card-visual {
             height: 180px;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -132,15 +151,16 @@
             align-items: center;
             justify-content: center;
             position: relative;
+            cursor: pointer;
         }
-        .card-visual i { font-size: 4rem; color: rgba(255, 255, 255, 0.9); }
+        .card-visual i { font-size: 4rem; color: rgba(255,255,255,0.9); }
         .play-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0,0,0,0.5);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -157,10 +177,12 @@
             cursor: pointer;
             font-size: 1.5rem;
             color: var(--primary);
+            transition: all 0.3s ease;
         }
+        .play-btn-large:hover { transform: scale(1.1); }
         .card-info { padding: 20px; }
         .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 5px; }
-        .card-artist { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px; }
+        .card-artist { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px; display: flex; align-items: center; gap: 5px; }
         .card-meta { display: flex; justify-content: space-between; align-items: center; }
         .card-duration { color: var(--text-muted); font-size: 0.85rem; }
         .card-actions { display: flex; gap: 8px; }
@@ -174,7 +196,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        .action-btn:hover { background: var(--primary); color: white; }
+        .action-btn:hover { background: var(--primary); color: white; transform: scale(1.1); }
         .action-btn.delete:hover { background: var(--danger); }
         .player-bar {
             position: fixed;
@@ -216,7 +238,9 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
+            transition: all 0.3s ease;
         }
+        .control-btn:hover { background: var(--bg-hover); transform: scale(1.1); }
         .control-btn.play {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
@@ -261,27 +285,40 @@
         }
         .toast.show { transform: translateX(0); }
         .toast.error { border-left-color: var(--danger); }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
         @media (max-width: 768px) {
             .player-volume { display: none; }
             .progress-container { order: 3; flex: 1 1 100%; max-width: none; }
+            .header h1 { font-size: 2rem; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1><i class="fas fa-music"></i> Aydym Tekjesi</h1>
-            <p>Aydymlarynyzy ýükläň, diňläň we dolandyryň</p>
+            <h1><i class="fas fa-cloud-music"></i> Aydym Dünyäsi</h1>
+            <p>Bulutda aýdymlary ýükläň, diňläň we paýlaşyň | Hemmeler üçin açyk</p>
         </div>
+        
         <div class="upload-section" id="dropZone">
             <i class="fas fa-cloud-upload-alt"></i>
-            <h3>Aydym Ýükle</h3>
-            <p>MP3, WAV, OGG faýllaryny süýräň ýa-da saýlaň</p>
-            <input type="file" id="fileInput" class="file-input" accept="audio/*" multiple style="display:none">
+            <h3>Aýdym Ýükle (Bulut)</h3>
+            <p>MP3, WAV, OGG faýllaryny süýräň ýa-da saýlaň - Hemmeler görer</p>
+            <input type="file" id="fileInput" accept="audio/*" multiple style="display:none">
             <button class="upload-btn" id="uploadBtn">
                 <i class="fas fa-plus"></i> Faýl Saýla
             </button>
         </div>
+        
         <div class="stats">
             <div class="stat-card">
                 <div class="stat-icon blue"><i class="fas fa-music"></i></div>
@@ -302,26 +339,29 @@
                 </div>
             </div>
         </div>
+        
         <div class="controls">
             <div class="search-box">
-                <i class="fas fa-search" style="position: absolute; margin: 18px 0 0 18px; color: var(--text-muted);"></i>
+                <i class="fas fa-search"></i>
                 <input type="text" id="searchInput" placeholder="Aýdym ýa-da ýaradyjy gözle...">
             </div>
             <div class="filter-group">
-                <button class="filter-btn active" data-filter="all">Hemmesi</button>
-                <button class="filter-btn" data-filter="recent">Soňky Goşulan</button>
-                <button class="filter-btn" data-filter="name">Ady</button>
-                <button class="filter-btn" data-filter="artist">Ýaradyjy</button>
+                <button class="filter-btn active" data-filter="all"><i class="fas fa-th-large"></i> Hemmesi</button>
+                <button class="filter-btn" data-filter="recent"><i class="fas fa-clock"></i> Soňky Goşulan</button>
+                <button class="filter-btn" data-filter="name"><i class="fas fa-sort-alpha-down"></i> Ady</button>
+                <button class="filter-btn" data-filter="artist"><i class="fas fa-user"></i> Ýaradyjy</button>
             </div>
         </div>
+        
         <div class="music-grid" id="musicGrid">
             <div class="empty-state">
-                <i class="fas fa-music"></i>
-                <h3>Häzirlikçe aydym ýok</h3>
-                <p>Ýokardan aydym ýükläp başlaň</p>
+                <i class="fas fa-cloud-upload-alt"></i>
+                <h3>Aýdym ýok</h3>
+                <p>Ýokardan ilkinji aýdymy ýükläň!</p>
             </div>
         </div>
     </div>
+    
     <div class="player-bar" id="playerBar">
         <div class="player-info">
             <div class="player-cover"><i class="fas fa-music"></i></div>
@@ -347,80 +387,150 @@
             <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70">
         </div>
     </div>
+    
     <div class="toast" id="toast">
         <i class="fas fa-check-circle"></i>
         <span id="toastMessage">Amal üstünlikli!</span>
     </div>
 
     <script>
-        // IndexedDB bilen uly faýllary saklamak
-        let db;
+        // ============ SUPABASE KONFIGURASYON ============
+        const SUPABASE_URL = 'https://drvrpentoqjfrxmnyqut.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_mVWnLGp6qq2qPFlw1nluQw_cAauhqPg';
+        const STORAGE_BUCKET = 'aydym';  // bucket ady "айдыm" -> "aydym"
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // ============ GLOBAL DEĞİŞKENLER ============
         let songs = [];
         let currentSongIndex = -1;
         let isPlaying = false;
         let audio = new Audio();
         let currentFilter = 'all';
         let searchQuery = '';
-
-        // IndexedDB açmak
-        const request = indexedDB.open('MusicLibrary', 1);
         
-        request.onerror = () => console.log('DB error');
-        request.onsuccess = (e) => {
-            db = e.target.result;
-            loadSongsFromDB();
-        };
+        // ============ SUPABASE TABLOSU OLUŞTURMA SQL ============
+        // Önce Supabase'de "songs" tablosunu oluşturmanız gerekiyor:
+        /*
+        CREATE TABLE songs (
+            id BIGINT PRIMARY KEY,
+            title TEXT NOT NULL,
+            artist TEXT NOT NULL,
+            file_url TEXT NOT NULL,
+            duration NUMERIC,
+            date_added TIMESTAMP DEFAULT NOW(),
+            file_name TEXT
+        );
+        */
         
-        request.onupgradeneeded = (e) => {
-            db = e.target.result;
-            const store = db.createObjectStore('songs', { keyPath: 'id' });
-            store.createIndex('dateAdded', 'dateAdded');
-        };
-
-        function loadSongsFromDB() {
-            const transaction = db.transaction(['songs'], 'readonly');
-            const store = transaction.objectStore('songs');
-            const getAll = store.getAll();
-            
-            getAll.onsuccess = () => {
-                songs = getAll.result || [];
+        // ============ SUPABASE İŞLEMLERİ ============
+        async function loadSongsFromSupabase() {
+            showLoading(true);
+            try {
+                const { data, error } = await supabase
+                    .from('songs')
+                    .select('*')
+                    .order('date_added', { ascending: false });
+                
+                if (error) throw error;
+                
+                songs = data || [];
+                console.log('Şarkılar yüklendi:', songs.length);
                 renderSongs();
                 updateStats();
-            };
+            } catch (error) {
+                console.error('Yükleme hatası:', error);
+                showToast('Şarkılar yüklenemedi: ' + error.message, 'error');
+            }
+            showLoading(false);
         }
-
-        function saveSongToDB(song) {
-            const transaction = db.transaction(['songs'], 'readwrite');
-            const store = transaction.objectStore('songs');
-            store.add(song);
-            
-            transaction.oncomplete = () => {
-                songs.push(song);
+        
+        async function saveSongToSupabase(song) {
+            showLoading(true);
+            try {
+                // Önce dosyayı storage'a yükle
+                const fileName = `${Date.now()}_${song.fileName}`;
+                const fileBlob = await fetch(song.fileData).then(r => r.blob());
+                
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from(STORAGE_BUCKET)
+                    .upload(fileName, fileBlob, {
+                        contentType: 'audio/mpeg',
+                        cacheControl: '3600'
+                    });
+                
+                if (uploadError) throw uploadError;
+                
+                // Dosya URL'ini al
+                const { data: urlData } = supabase.storage
+                    .from(STORAGE_BUCKET)
+                    .getPublicUrl(fileName);
+                
+                const fileUrl = urlData.publicUrl;
+                
+                // Veritabanına kaydet
+                const { error: dbError } = await supabase
+                    .from('songs')
+                    .insert([{
+                        id: song.id,
+                        title: song.title,
+                        artist: song.artist,
+                        file_url: fileUrl,
+                        duration: song.duration,
+                        date_added: song.dateAdded,
+                        file_name: fileName
+                    }]);
+                
+                if (dbError) throw dbError;
+                
+                songs.unshift(song);
+                song.fileUrl = fileUrl;
                 renderSongs();
                 updateStats();
-                showToast(`"${song.title}" ýüklendi!`);
-            };
+                showToast(`✨ "${song.title}" buluta ýüklendi!`, 'success');
+            } catch (error) {
+                console.error('Kayıt hatası:', error);
+                showToast('Ýükleme ýalňyşlygy: ' + error.message, 'error');
+            }
+            showLoading(false);
         }
-
-        function deleteSongFromDB(id) {
-            const transaction = db.transaction(['songs'], 'readwrite');
-            const store = transaction.objectStore('songs');
-            store.delete(id);
-            
-            transaction.oncomplete = () => {
-                songs = songs.filter(s => s.id !== id);
-                if (currentSongIndex !== -1 && songs[currentSongIndex]?.id === id) {
+        
+        async function deleteSongFromSupabase(song) {
+            showLoading(true);
+            try {
+                // Storage'dan sil
+                const fileName = song.file_name || song.fileUrl?.split('/').pop();
+                if (fileName) {
+                    await supabase.storage
+                        .from(STORAGE_BUCKET)
+                        .remove([fileName]);
+                }
+                
+                // Veritabanından sil
+                const { error } = await supabase
+                    .from('songs')
+                    .delete()
+                    .eq('id', song.id);
+                
+                if (error) throw error;
+                
+                songs = songs.filter(s => s.id !== song.id);
+                if (currentSongIndex !== -1 && songs[currentSongIndex]?.id === song.id) {
                     pauseSong();
                     currentSongIndex = -1;
                     playerBar.classList.remove('active');
                 }
                 renderSongs();
                 updateStats();
-                showToast('Aýdym pozuldy');
-            };
+                showToast('Aýdym pozuldy', 'success');
+            } catch (error) {
+                console.error('Silme hatası:', error);
+                showToast('Pozmak ýalňyşlygy: ' + error.message, 'error');
+            }
+            showLoading(false);
         }
-
-        // DOM Elementler
+        
+        // ============ DOM ELEMENTLERİ ============
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const uploadBtn = document.getElementById('uploadBtn');
@@ -437,8 +547,8 @@
         const volumeSlider = document.getElementById('volumeSlider');
         const playerTitle = document.getElementById('playerTitle');
         const playerArtist = document.getElementById('playerArtist');
-
-        // Ýüklemek funksiýasy
+        
+        // ============ AYDYM YUKLEME ============
         function handleFiles(files) {
             Array.from(files).forEach(file => {
                 if (!file.type.startsWith('audio/')) {
@@ -455,7 +565,6 @@
                         let title = file.name.replace(/\.[^/.]+$/, '');
                         let artist = 'Näbelli Ýaradyjy';
                         
-                        // Ady we ýaradyjyny aýyrmak
                         const match = file.name.match(/^(.+?)\s*[-–]\s*(.+?)\.[^.]+$/);
                         if (match) {
                             artist = match[1].trim();
@@ -472,22 +581,13 @@
                             fileName: file.name
                         };
                         
-                        saveSongToDB(song);
-                    });
-                    
-                    audioTemp.addEventListener('error', () => {
-                        showToast('Faýl ýüklenmedi: ' + file.name, 'error');
+                        saveSongToSupabase(song);
                     });
                 };
-                
-                reader.onerror = () => {
-                    showToast('Faýl okalmady: ' + file.name, 'error');
-                };
-                
                 reader.readAsDataURL(file);
             });
         }
-
+        
         uploadBtn.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
         
@@ -505,7 +605,8 @@
             dropZone.classList.remove('dragover');
             handleFiles(e.dataTransfer.files);
         });
-
+        
+        // ============ ARAYUZ RENDER ============
         function renderSongs() {
             let filtered = [...songs];
             
@@ -518,7 +619,7 @@
             }
             
             if (currentFilter === 'recent') {
-                filtered.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
+                filtered.sort((a, b) => new Date(b.date_added) - new Date(a.date_added));
             } else if (currentFilter === 'name') {
                 filtered.sort((a, b) => a.title.localeCompare(b.title));
             } else if (currentFilter === 'artist') {
@@ -536,32 +637,31 @@
                 return;
             }
             
-            musicGrid.innerHTML = filtered.map((song, idx) => {
-                const originalIndex = songs.findIndex(s => s.id === song.id);
-                const isCurrent = originalIndex === currentSongIndex;
+            musicGrid.innerHTML = filtered.map(song => {
+                const isCurrent = currentSongIndex !== -1 && songs[currentSongIndex]?.id === song.id;
                 return `
                     <div class="music-card ${isCurrent ? 'playing' : ''}" data-id="${song.id}">
-                        <div class="card-visual">
+                        <div class="card-visual" onclick="playSongById(${song.id})">
                             <i class="fas fa-music"></i>
                             <div class="play-overlay">
-                                <button class="play-btn-large" onclick="window.playSongById(${song.id})">
+                                <button class="play-btn-large">
                                     <i class="fas ${isCurrent && isPlaying ? 'fa-pause' : 'fa-play'}"></i>
                                 </button>
                             </div>
                         </div>
                         <div class="card-info">
-                            <div class="card-title" title="${song.title}">${song.title}</div>
-                            <div class="card-artist"><i class="fas fa-user"></i> ${song.artist}</div>
+                            <div class="card-title" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</div>
+                            <div class="card-artist"><i class="fas fa-user"></i> ${escapeHtml(song.artist)}</div>
                             <div class="card-meta">
                                 <span class="card-duration"><i class="fas fa-clock"></i> ${formatTime(song.duration)}</span>
                                 <div class="card-actions">
-                                    <button class="action-btn" onclick="window.playSongById(${song.id})" title="Oýnat">
+                                    <button class="action-btn" onclick="playSongById(${song.id})" title="Oýnat">
                                         <i class="fas ${isCurrent && isPlaying ? 'fa-pause' : 'fa-play'}"></i>
                                     </button>
-                                    <button class="action-btn" onclick="window.downloadSong(${song.id})" title="Ýükle">
+                                    <button class="action-btn" onclick="downloadSong(${song.id})" title="Ýükle">
                                         <i class="fas fa-download"></i>
                                     </button>
-                                    <button class="action-btn delete" onclick="window.deleteSongById(${song.id})" title="Poz">
+                                    <button class="action-btn delete" onclick="deleteSongById(${song.id})" title="Poz">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -571,6 +671,17 @@
             }).join('');
         }
         
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        // ============ AYDYM KONTROLLERI ============
         window.playSongById = (id) => {
             const index = songs.findIndex(s => s.id === id);
             if (index !== -1) playSong(index);
@@ -580,17 +691,18 @@
             const song = songs.find(s => s.id === id);
             if (!song) return;
             const a = document.createElement('a');
-            a.href = song.fileData;
-            a.download = song.fileName || `${song.artist} - ${song.title}.mp3`;
+            a.href = song.file_url;
+            a.download = song.file_name || `${song.artist} - ${song.title}.mp3`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            showToast(`"${song.title}" ýüklenýär...`);
+            showToast(`🎵 "${song.title}" ýüklenýär...`);
         };
         
         window.deleteSongById = (id) => {
-            if (confirm('Bu aýdymy pozmak isleýändigiňize ynanýarsyňyzmy?')) {
-                deleteSongFromDB(id);
+            const song = songs.find(s => s.id === id);
+            if (song && confirm('Bu aýdymy pozmak isleýändigiňize ynanýarsyňyzmy?')) {
+                deleteSongFromSupabase(song);
             }
         };
         
@@ -604,7 +716,7 @@
             
             currentSongIndex = index;
             const song = songs[index];
-            audio.src = song.fileData;
+            audio.src = song.file_url;
             audio.play();
             isPlaying = true;
             playerBar.classList.add('active');
@@ -678,6 +790,7 @@
             });
         });
         
+        // ============ STATISTIKA ============
         function updateStats() {
             document.getElementById('totalSongs').textContent = songs.length;
             const uniqueArtists = new Set(songs.map(s => s.artist));
@@ -701,7 +814,22 @@
             setTimeout(() => toastEl.classList.remove('show'), 3000);
         }
         
-        // Klawiatura kontrolý
+        function showLoading(show) {
+            const btn = document.getElementById('uploadBtn');
+            if (show) {
+                btn.innerHTML = '<div class="loading"></div> Ýüklenýär...';
+                btn.disabled = true;
+            } else {
+                btn.innerHTML = '<i class="fas fa-plus"></i> Faýl Saýla';
+                btn.disabled = false;
+            }
+        }
+        
+        // ============ BAŞLAT ============
+        loadSongsFromSupabase();
+        audio.volume = 0.7;
+        
+        // Klaviatura kontrolý
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
                 e.preventDefault();
@@ -716,8 +844,6 @@
                 nextBtn.click();
             }
         });
-        
-        audio.volume = 0.7;
     </script>
 </body>
 </html>

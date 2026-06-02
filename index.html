@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panelli Müzik Sitesi</title>
+    <title>Admin Panelli Müzik Sitesi - Çalışan Versiyon</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -76,7 +76,6 @@
         }
         .admin-btn:hover {
             transform: scale(1.1);
-            box-shadow: 0 8px 30px rgba(236, 72, 153, 0.4);
         }
         
         /* Admin Panel Modal */
@@ -98,12 +97,12 @@
         .admin-modal-content {
             background: var(--bg-card);
             width: 90%;
-            max-width: 500px;
+            max-width: 550px;
             border-radius: 20px;
             padding: 30px;
             position: relative;
             border: 2px solid var(--primary);
-            max-height: 80vh;
+            max-height: 85vh;
             overflow-y: auto;
         }
         .close-modal {
@@ -198,6 +197,7 @@
         .logout-btn {
             background: var(--danger);
             margin-top: 20px;
+            width: 100%;
         }
         .song-list-admin {
             max-height: 300px;
@@ -221,10 +221,15 @@
             background: var(--danger);
             border: none;
             color: white;
-            width: 30px;
-            height: 30px;
+            width: 32px;
+            height: 32px;
             border-radius: 8px;
             cursor: pointer;
+            margin-left: 10px;
+        }
+        .delete-song-btn:hover {
+            background: #dc2626;
+            transform: scale(1.05);
         }
         
         /* İstatistikler */
@@ -675,9 +680,7 @@
     <div class="admin-modal" id="adminModal">
         <div class="admin-modal-content">
             <span class="close-modal" id="closeModalBtn">&times;</span>
-            <div id="adminPanelContent">
-                <!-- İçerik dinamik olarak doldurulacak -->
-            </div>
+            <div id="adminPanelContent"></div>
         </div>
     </div>
     
@@ -687,12 +690,12 @@
     </div>
 
     <script>
-        // ============ YAPILANDIRMA ============
-        const ADMIN_PASSWORD = "admin123";  // Admin parolu - İstediğin gibi değiştirebilirsin
-        let isAdmin = false;
+        // ============ KONFIGÜRASYON ============
+        const ADMIN_PASSWORD = "admin123";  // Admin şifresi - İstediğin gibi değiştirebilirsin
         
-        // IndexedDB
-        let db;
+        // ============ GLOBAL DEĞİŞKENLER ============
+        let isAdmin = false;
+        let db = null;
         let songs = [];
         let currentSongIndex = -1;
         let isPlaying = false;
@@ -700,62 +703,92 @@
         let currentFilter = 'all';
         let searchQuery = '';
         
-        // ============ INDEXEDDB İŞLEMLERİ ============
-        const request = indexedDB.open('MusicLibrary', 1);
+        // ============ INDEXEDDB BAŞLAT ============
+        function initDB() {
+            const request = indexedDB.open('MusicLibrary', 2);
+            
+            request.onerror = function(event) {
+                console.log('IndexedDB hatası:', event);
+                showToast('Veritabanı hatası!', 'error');
+            };
+            
+            request.onsuccess = function(event) {
+                db = event.target.result;
+                console.log('IndexedDB başarıyla açıldı');
+                loadSongs();
+            };
+            
+            request.onupgradeneeded = function(event) {
+                db = event.target.result;
+                if (!db.objectStoreNames.contains('songs')) {
+                    const store = db.createObjectStore('songs', { keyPath: 'id' });
+                    store.createIndex('dateAdded', 'dateAdded');
+                    console.log('ObjectStore oluşturuldu');
+                }
+            };
+        }
         
-        request.onerror = () => console.log('DB error');
-        request.onsuccess = (e) => {
-            db = e.target.result;
-            loadSongsFromDB();
-        };
-        
-        request.onupgradeneeded = (e) => {
-            db = e.target.result;
-            if (!db.objectStoreNames.contains('songs')) {
-                const store = db.createObjectStore('songs', { keyPath: 'id' });
-                store.createIndex('dateAdded', 'dateAdded');
-            }
-        };
-        
-        function loadSongsFromDB() {
+        // ============ ŞARKILARI YÜKLE ============
+        function loadSongs() {
+            if (!db) return;
+            
             const transaction = db.transaction(['songs'], 'readonly');
             const store = transaction.objectStore('songs');
             const getAll = store.getAll();
             
-            getAll.onsuccess = () => {
+            getAll.onsuccess = function() {
                 songs = getAll.result || [];
+                console.log('Şarkılar yüklendi:', songs.length);
                 renderSongs();
                 updateStats();
-                if (isAdmin) updateAdminSongList();
+                if (isAdmin && document.getElementById('adminSongList')) {
+                    updateAdminSongList();
+                }
+            };
+            
+            getAll.onerror = function() {
+                console.log('Şarkılar yüklenemedi');
             };
         }
         
-        function saveSongToDB(song) {
+        // ============ ŞARKI KAYDET ============
+        function saveSong(song) {
+            if (!db) return;
+            
             const transaction = db.transaction(['songs'], 'readwrite');
             const store = transaction.objectStore('songs');
             store.add(song);
             
-            transaction.oncomplete = () => {
+            transaction.oncomplete = function() {
                 songs.push(song);
                 renderSongs();
                 updateStats();
                 if (isAdmin) updateAdminSongList();
-                showToast(`"${song.title}" ýüklendi!`, 'success');
+                showToast(`"${song.title}" başaryly ýüklendi!`, 'success');
+                console.log('Şarkı kaydedildi:', song.title);
+            };
+            
+            transaction.onerror = function() {
+                showToast('Şarkı kaydedilemedi!', 'error');
             };
         }
         
-        function deleteSongFromDB(id) {
+        // ============ ŞARKI SİL ============
+        function deleteSong(id) {
+            if (!db) return;
+            
             const transaction = db.transaction(['songs'], 'readwrite');
             const store = transaction.objectStore('songs');
             store.delete(id);
             
-            transaction.oncomplete = () => {
-                songs = songs.filter(s => s.id !== id);
-                if (currentSongIndex !== -1 && songs[currentSongIndex]?.id === id) {
+            transaction.oncomplete = function() {
+                const index = songs.findIndex(s => s.id === id);
+                if (index === currentSongIndex) {
                     pauseSong();
                     currentSongIndex = -1;
                     playerBar.classList.remove('active');
                 }
+                songs = songs.filter(s => s.id !== id);
                 renderSongs();
                 updateStats();
                 if (isAdmin) updateAdminSongList();
@@ -774,11 +807,11 @@
             `;
         }
         
-        window.loginAdmin = () => {
+        window.loginAdmin = function() {
             const password = document.getElementById('adminPasswordInput').value;
             if (password === ADMIN_PASSWORD) {
                 isAdmin = true;
-                localStorage.setItem('isAdmin', 'true');
+                localStorage.setItem('musicAdmin', 'true');
                 showAdminPanel();
                 showToast('Admin paneline hoş geldiňiz!', 'success');
             } else {
@@ -796,7 +829,7 @@
                     <p><i class="fas fa-clock"></i> Jemi wagt: ${formatTime(totalDuration)}</p>
                 </div>
                 
-                <h3><i class="fas fa-cloud-upload-alt"></i> Aýdym Ýükle</h3>
+                <h3><i class="fas fa-cloud-upload-alt"></i> Täze Aýdym Ýükle</h3>
                 <div class="upload-area" id="adminUploadArea">
                     <i class="fas fa-cloud-upload-alt"></i>
                     <p>MP3, WAV, OGG faýllaryny süýräň ýa-da saýlaň</p>
@@ -814,28 +847,39 @@
                 </button>
             `;
             
-            // Upload eventleri
+            // Upload işlemleri
             const adminUploadArea = document.getElementById('adminUploadArea');
             const adminFileInput = document.getElementById('adminFileInput');
             const adminUploadBtn = document.getElementById('adminUploadBtn');
             
-            adminUploadBtn.addEventListener('click', () => adminFileInput.click());
-            adminFileInput.addEventListener('change', (e) => handleAdminUpload(e.target.files));
+            if (adminUploadBtn) {
+                adminUploadBtn.addEventListener('click', function() {
+                    adminFileInput.click();
+                });
+            }
             
-            adminUploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                adminUploadArea.classList.add('dragover');
-            });
+            if (adminFileInput) {
+                adminFileInput.addEventListener('change', function(e) {
+                    handleAdminUpload(e.target.files);
+                });
+            }
             
-            adminUploadArea.addEventListener('dragleave', () => {
-                adminUploadArea.classList.remove('dragover');
-            });
-            
-            adminUploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                adminUploadArea.classList.remove('dragover');
-                handleAdminUpload(e.dataTransfer.files);
-            });
+            if (adminUploadArea) {
+                adminUploadArea.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    adminUploadArea.classList.add('dragover');
+                });
+                
+                adminUploadArea.addEventListener('dragleave', function() {
+                    adminUploadArea.classList.remove('dragover');
+                });
+                
+                adminUploadArea.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    adminUploadArea.classList.remove('dragover');
+                    handleAdminUpload(e.dataTransfer.files);
+                });
+            }
             
             updateAdminSongList();
         }
@@ -851,7 +895,10 @@
             
             container.innerHTML = songs.map(song => `
                 <div class="admin-song-item">
-                    <span><strong>${song.title}</strong><br><small>${song.artist}</small></span>
+                    <span>
+                        <strong>${escapeHtml(song.title)}</strong><br>
+                        <small>${escapeHtml(song.artist)}</small>
+                    </span>
                     <button class="delete-song-btn" onclick="deleteSongById(${song.id})">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -859,24 +906,34 @@
             `).join('');
         }
         
+        window.deleteSongById = function(id) {
+            if (!isAdmin) {
+                showToast('Diňe admin aýdym pozip bilýär!', 'error');
+                return;
+            }
+            if (confirm('Bu aýdymy pozmak isleýändigiňize ynanýarsyňyzmy?')) {
+                deleteSong(id);
+            }
+        };
+        
         function handleAdminUpload(files) {
             if (!isAdmin) {
                 showToast('Diňe admin aýdym ýükläp bilýär!', 'error');
                 return;
             }
             
-            Array.from(files).forEach(file => {
+            Array.from(files).forEach(function(file) {
                 if (!file.type.startsWith('audio/')) {
                     showToast('Diňe ses faýllary ýükläp bolýar!', 'error');
                     return;
                 }
                 
                 const reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = function(e) {
                     const audioTemp = new Audio();
                     audioTemp.src = e.target.result;
                     
-                    audioTemp.addEventListener('loadedmetadata', () => {
+                    audioTemp.addEventListener('loadedmetadata', function() {
                         let title = file.name.replace(/\.[^/.]+$/, '');
                         let artist = 'Näbelli Ýaradyjy';
                         
@@ -896,28 +953,18 @@
                             fileName: file.name
                         };
                         
-                        saveSongToDB(song);
+                        saveSong(song);
                     });
                 };
                 reader.readAsDataURL(file);
             });
         }
         
-        window.logoutAdmin = () => {
+        window.logoutAdmin = function() {
             isAdmin = false;
-            localStorage.removeItem('isAdmin');
+            localStorage.removeItem('musicAdmin');
             showAdminLogin();
             showToast('Admin panelinden çykdyňyz', 'success');
-        };
-        
-        window.deleteSongById = (id) => {
-            if (!isAdmin) {
-                showToast('Diňe admin aýdym pozip bilýär!', 'error');
-                return;
-            }
-            if (confirm('Bu aýdymy pozmak isleýändigiňize ynanýarsyňyzmy?')) {
-                deleteSongFromDB(id);
-            }
         };
         
         // ============ MODAL KONTROL ============
@@ -925,27 +972,33 @@
         const adminModal = document.getElementById('adminModal');
         const closeModalBtn = document.getElementById('closeModalBtn');
         
-        adminBtn.addEventListener('click', () => {
-            adminModal.classList.add('show');
-            if (isAdmin) {
-                showAdminPanel();
-            } else {
-                showAdminLogin();
-            }
-        });
+        if (adminBtn) {
+            adminBtn.addEventListener('click', function() {
+                adminModal.classList.add('show');
+                if (isAdmin) {
+                    showAdminPanel();
+                } else {
+                    showAdminLogin();
+                }
+            });
+        }
         
-        closeModalBtn.addEventListener('click', () => {
-            adminModal.classList.remove('show');
-        });
-        
-        adminModal.addEventListener('click', (e) => {
-            if (e.target === adminModal) {
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', function() {
                 adminModal.classList.remove('show');
-            }
-        });
+            });
+        }
+        
+        if (adminModal) {
+            adminModal.addEventListener('click', function(e) {
+                if (e.target === adminModal) {
+                    adminModal.classList.remove('show');
+                }
+            });
+        }
         
         // Admin durumunu kontrol et
-        if (localStorage.getItem('isAdmin') === 'true') {
+        if (localStorage.getItem('musicAdmin') === 'true') {
             isAdmin = true;
         }
         
@@ -986,33 +1039,8 @@
                 const index = songs.findIndex(s => s.id === song.id);
                 const isCurrent = index === currentSongIndex;
                 return `
-                    <div class="music-card ${isCurrent ? 'playing' : ''}" data-id="${song.id}">
+                    <div class="music-card ${isCurrent ? 'playing' : ''}">
                         <div class="card-visual" onclick="playSongById(${song.id})">
                             <i class="fas fa-music"></i>
                             <div class="play-overlay">
-                                <button class="play-btn-large">
-                                    <i class="fas ${isCurrent && isPlaying ? 'fa-pause' : 'fa-play'}"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="card-info">
-                            <div class="card-title" title="${song.title}">${escapeHtml(song.title)}</div>
-                            <div class="card-artist"><i class="fas fa-user"></i> ${escapeHtml(song.artist)}</div>
-                            <div class="card-meta">
-                                <span class="card-duration"><i class="fas fa-clock"></i> ${formatTime(song.duration)}</span>
-                                <div class="card-actions">
-                                    <button class="action-btn" onclick="playSongById(${song.id})" title="Oýnat">
-                                        <i class="fas ${isCurrent && isPlaying ? 'fa-pause' : 'fa-play'}"></i>
-                                    </button>
-                                    <button class="action-btn download" onclick="downloadSong(${song.id})" title="Ýükle">
-                                        <i class="fas fa-download"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>`;
-            }).join('');
-        }
-        
-        function escapeHtml(str) {
-            return str
+                               

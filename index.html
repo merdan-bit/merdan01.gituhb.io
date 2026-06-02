@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aydym Tekjesi - Professional</title>
+    <title>Aydym Tekjesi - Admin Panelli</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -18,6 +18,7 @@
             --text-muted: #94a3b8;
             --success: #22c55e;
             --danger: #ef4444;
+            --warning: #f59e0b;
         }
         body {
             font-family: 'Segoe UI', sans-serif;
@@ -27,8 +28,22 @@
             overflow-x: hidden;
         }
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; position: relative; z-index: 1; }
-        .header { text-align: center; padding: 40px 20px; }
+        .header { text-align: center; padding: 40px 20px; position: relative; }
         .header h1 { font-size: 3rem; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .admin-badge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--warning), var(--secondary));
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 100;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+        .admin-badge:hover { transform: scale(1.05); }
         .upload-section {
             background: var(--bg-card);
             border-radius: 20px;
@@ -38,9 +53,10 @@
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
+            display: none;
         }
+        .upload-section.show { display: block; }
         .upload-section:hover { border-color: var(--secondary); transform: translateY(-2px); }
-        .upload-section.dragover { background: rgba(99, 102, 241, 0.1); border-color: var(--secondary); }
         .upload-section i { font-size: 3rem; color: var(--primary); margin-bottom: 15px; }
         .upload-btn {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
@@ -90,6 +106,7 @@
         .search-box {
             flex: 1;
             min-width: 250px;
+            position: relative;
         }
         .search-box input {
             width: 100%;
@@ -100,6 +117,7 @@
             color: var(--text);
             font-size: 1rem;
         }
+        .search-box i { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
         .filter-group { display: flex; gap: 10px; flex-wrap: wrap; }
         .filter-btn {
             padding: 12px 20px;
@@ -108,6 +126,7 @@
             color: var(--text-muted);
             border-radius: 12px;
             cursor: pointer;
+            transition: all 0.3s ease;
         }
         .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
         .music-grid {
@@ -122,6 +141,7 @@
             overflow: hidden;
             border: 1px solid var(--bg-hover);
             transition: all 0.3s ease;
+            position: relative;
         }
         .music-card:hover { transform: translateY(-5px); border-color: var(--primary); }
         .music-card.playing { border-color: var(--secondary); box-shadow: 0 0 30px rgba(236, 72, 153, 0.3); }
@@ -132,6 +152,7 @@
             align-items: center;
             justify-content: center;
             position: relative;
+            cursor: pointer;
         }
         .card-visual i { font-size: 4rem; color: rgba(255, 255, 255, 0.9); }
         .play-overlay {
@@ -157,7 +178,9 @@
             cursor: pointer;
             font-size: 1.5rem;
             color: var(--primary);
+            transition: all 0.3s ease;
         }
+        .play-btn-large:hover { transform: scale(1.1); }
         .card-info { padding: 20px; }
         .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 5px; }
         .card-artist { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px; }
@@ -174,8 +197,10 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        .action-btn:hover { background: var(--primary); color: white; }
-        .action-btn.delete:hover { background: var(--danger); }
+        .action-btn:hover { background: var(--primary); color: white; transform: scale(1.1); }
+        .action-btn.delete { display: none; }
+        .action-btn.delete.show { display: flex; background: var(--danger); color: white; }
+        .action-btn.delete.show:hover { background: #dc2626; }
         .player-bar {
             position: fixed;
             bottom: 0;
@@ -203,7 +228,9 @@
             align-items: center;
             justify-content: center;
             font-size: 1.2rem;
+            animation: pulse 2s infinite;
         }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
         .player-title { font-weight: 600; }
         .player-artist { color: var(--text-muted); font-size: 0.85rem; }
         .player-controls { display: flex; align-items: center; gap: 15px; flex: 1; justify-content: center; }
@@ -216,7 +243,9 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
+            transition: all 0.3s ease;
         }
+        .control-btn:hover { background: var(--bg-hover); transform: scale(1.1); }
         .control-btn.play {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
@@ -241,11 +270,42 @@
             background: linear-gradient(90deg, var(--primary), var(--secondary));
             border-radius: 3px;
             width: 0%;
+            position: relative;
         }
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            background: white;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .progress-bar:hover .progress-fill::after { opacity: 1; }
         .time { font-size: 0.8rem; color: var(--text-muted); }
         .player-volume { flex: 0 0 150px; display: flex; align-items: center; gap: 10px; }
-        .volume-slider { width: 100px; height: 6px; }
+        .volume-slider {
+            width: 100px;
+            height: 6px;
+            -webkit-appearance: none;
+            background: var(--bg-hover);
+            border-radius: 3px;
+            outline: none;
+        }
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+        }
         .empty-state { text-align: center; padding: 80px 20px; color: var(--text-muted); }
+        .empty-state i { font-size: 4rem; margin-bottom: 20px; opacity: 0.5; }
         .toast {
             position: fixed;
             top: 20px;
@@ -258,12 +318,72 @@
             transform: translateX(400px);
             transition: transform 0.3s ease;
             z-index: 2000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         .toast.show { transform: translateX(0); }
         .toast.error { border-left-color: var(--danger); }
+        .admin-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: var(--bg-card);
+            z-index: 2001;
+            transition: right 0.3s ease;
+            box-shadow: -5px 0 30px rgba(0,0,0,0.5);
+            padding: 30px;
+            overflow-y: auto;
+        }
+        .admin-panel.show { right: 0; }
+        .admin-panel h2 {
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+        .admin-panel .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .admin-stats {
+            background: var(--bg-dark);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .login-form {
+            padding: 20px;
+        }
+        .login-form input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: var(--bg-dark);
+            border: 2px solid var(--bg-hover);
+            border-radius: 10px;
+            color: var(--text);
+        }
+        .login-form button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+        }
         @media (max-width: 768px) {
             .player-volume { display: none; }
             .progress-container { order: 3; flex: 1 1 100%; max-width: none; }
+            .admin-panel { width: 100%; right: -100%; }
         }
     </style>
 </head>
@@ -271,17 +391,37 @@
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-music"></i> Aydym Tekjesi</h1>
-            <p>Aydymlarynyzy ýükläň, diňläň we dolandyryň</p>
+            <p>Aydymlarynyzy diňläň we indiriň</p>
         </div>
-        <div class="upload-section" id="dropZone">
+        
+        <!-- Admin Badge -->
+        <div class="admin-badge" id="adminBadge">
+            <i class="fas fa-user-shield"></i> Admin Paneli
+        </div>
+        
+        <!-- Admin Panel -->
+        <div class="admin-panel" id="adminPanel">
+            <button class="close-btn" id="closePanelBtn"><i class="fas fa-times"></i></button>
+            <div id="adminContent">
+                <h2><i class="fas fa-lock"></i> Admin Giriş</h2>
+                <div class="login-form">
+                    <input type="password" id="adminPassword" placeholder="Admin paroluny giriziň">
+                    <button onclick="checkAdminPassword()">Giriş</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Upload Section (Sadece admin görer) -->
+        <div class="upload-section" id="uploadSection">
             <i class="fas fa-cloud-upload-alt"></i>
-            <h3>Aydym Ýükle</h3>
+            <h3>Aydym Ýükle (Diňe Admin)</h3>
             <p>MP3, WAV, OGG faýllaryny süýräň ýa-da saýlaň</p>
-            <input type="file" id="fileInput" class="file-input" accept="audio/*" multiple style="display:none">
+            <input type="file" id="fileInput" accept="audio/*" multiple style="display:none">
             <button class="upload-btn" id="uploadBtn">
                 <i class="fas fa-plus"></i> Faýl Saýla
             </button>
         </div>
+        
         <div class="stats">
             <div class="stat-card">
                 <div class="stat-icon blue"><i class="fas fa-music"></i></div>
@@ -302,26 +442,29 @@
                 </div>
             </div>
         </div>
+        
         <div class="controls">
             <div class="search-box">
-                <i class="fas fa-search" style="position: absolute; margin: 18px 0 0 18px; color: var(--text-muted);"></i>
+                <i class="fas fa-search"></i>
                 <input type="text" id="searchInput" placeholder="Aýdym ýa-da ýaradyjy gözle...">
             </div>
             <div class="filter-group">
-                <button class="filter-btn active" data-filter="all">Hemmesi</button>
-                <button class="filter-btn" data-filter="recent">Soňky Goşulan</button>
-                <button class="filter-btn" data-filter="name">Ady</button>
-                <button class="filter-btn" data-filter="artist">Ýaradyjy</button>
+                <button class="filter-btn active" data-filter="all"><i class="fas fa-th-large"></i> Hemmesi</button>
+                <button class="filter-btn" data-filter="recent"><i class="fas fa-clock"></i> Soňky Goşulan</button>
+                <button class="filter-btn" data-filter="name"><i class="fas fa-sort-alpha-down"></i> Ady</button>
+                <button class="filter-btn" data-filter="artist"><i class="fas fa-user"></i> Ýaradyjy</button>
             </div>
         </div>
+        
         <div class="music-grid" id="musicGrid">
             <div class="empty-state">
                 <i class="fas fa-music"></i>
                 <h3>Häzirlikçe aydym ýok</h3>
-                <p>Ýokardan aydym ýükläp başlaň</p>
+                <p>Admin tarapyndan aydymlar goşuljak</p>
             </div>
         </div>
     </div>
+    
     <div class="player-bar" id="playerBar">
         <div class="player-info">
             <div class="player-cover"><i class="fas fa-music"></i></div>
@@ -347,13 +490,18 @@
             <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70">
         </div>
     </div>
+    
     <div class="toast" id="toast">
         <i class="fas fa-check-circle"></i>
         <span id="toastMessage">Amal üstünlikli!</span>
     </div>
 
     <script>
-        // IndexedDB bilen uly faýllary saklamak
+        // Admin paroly (Parol: admin123)
+        const ADMIN_PASSWORD = "admin123";
+        let isAdmin = false;
+        
+        // IndexedDB
         let db;
         let songs = [];
         let currentSongIndex = -1;
@@ -361,7 +509,7 @@
         let audio = new Audio();
         let currentFilter = 'all';
         let searchQuery = '';
-
+        
         // IndexedDB açmak
         const request = indexedDB.open('MusicLibrary', 1);
         
@@ -373,10 +521,12 @@
         
         request.onupgradeneeded = (e) => {
             db = e.target.result;
-            const store = db.createObjectStore('songs', { keyPath: 'id' });
-            store.createIndex('dateAdded', 'dateAdded');
+            if (!db.objectStoreNames.contains('songs')) {
+                const store = db.createObjectStore('songs', { keyPath: 'id' });
+                store.createIndex('dateAdded', 'dateAdded');
+            }
         };
-
+        
         function loadSongsFromDB() {
             const transaction = db.transaction(['songs'], 'readonly');
             const store = transaction.objectStore('songs');
@@ -388,7 +538,7 @@
                 updateStats();
             };
         }
-
+        
         function saveSongToDB(song) {
             const transaction = db.transaction(['songs'], 'readwrite');
             const store = transaction.objectStore('songs');
@@ -401,7 +551,7 @@
                 showToast(`"${song.title}" ýüklendi!`);
             };
         }
-
+        
         function deleteSongFromDB(id) {
             const transaction = db.transaction(['songs'], 'readwrite');
             const store = transaction.objectStore('songs');
@@ -419,27 +569,63 @@
                 showToast('Aýdym pozuldy');
             };
         }
-
-        // DOM Elementler
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const musicGrid = document.getElementById('musicGrid');
-        const searchInput = document.getElementById('searchInput');
-        const playerBar = document.getElementById('playerBar');
-        const playBtn = document.getElementById('playBtn');
-        const prevBtn = document.getElementById('prevBtn');
-        const nextBtn = document.getElementById('nextBtn');
-        const progressBar = document.getElementById('progressBar');
-        const progressFill = document.getElementById('progressFill');
-        const currentTimeEl = document.getElementById('currentTime');
-        const totalTimeEl = document.getElementById('totalTime');
-        const volumeSlider = document.getElementById('volumeSlider');
-        const playerTitle = document.getElementById('playerTitle');
-        const playerArtist = document.getElementById('playerArtist');
-
-        // Ýüklemek funksiýasy
+        
+        // Admin panel funksiýalary
+        window.checkAdminPassword = () => {
+            const password = document.getElementById('adminPassword').value;
+            if (password === ADMIN_PASSWORD) {
+                isAdmin = true;
+                localStorage.setItem('isAdmin', 'true');
+                document.getElementById('adminContent').innerHTML = `
+                    <h2><i class="fas fa-user-cog"></i> Admin Panel</h2>
+                    <div class="admin-stats">
+                        <p><i class="fas fa-music"></i> Jemi aýdym: ${songs.length}</p>
+                        <p><i class="fas fa-user"></i> Ýaradyjylar: ${new Set(songs.map(s => s.artist)).size}</p>
+                    </div>
+                    <button onclick="logoutAdmin()" class="upload-btn" style="width:100%; margin-top:10px;">
+                        <i class="fas fa-sign-out-alt"></i> Çykyş
+                    </button>
+                `;
+                document.getElementById('uploadSection').classList.add('show');
+                renderSongs();
+                showToast('Admin paneline hoş geldiňiz!');
+                document.getElementById('adminPanel').classList.remove('show');
+            } else {
+                showToast('Parol ýalňyş!', 'error');
+            }
+        };
+        
+        window.logoutAdmin = () => {
+            isAdmin = false;
+            localStorage.removeItem('isAdmin');
+            document.getElementById('adminContent').innerHTML = `
+                <h2><i class="fas fa-lock"></i> Admin Giriş</h2>
+                <div class="login-form">
+                    <input type="password" id="adminPassword" placeholder="Admin paroluny giriziň">
+                    <button onclick="checkAdminPassword()">Giriş</button>
+                </div>
+            `;
+            document.getElementById('uploadSection').classList.remove('show');
+            renderSongs();
+            showToast('Admin panelinden çykdyňyz');
+        };
+        
+        // Admin panelini görkezmek
+        document.getElementById('adminBadge').addEventListener('click', () => {
+            document.getElementById('adminPanel').classList.add('show');
+        });
+        
+        document.getElementById('closePanelBtn').addEventListener('click', () => {
+            document.getElementById('adminPanel').classList.remove('show');
+        });
+        
+        // Admin ýükleme funksiýasy
         function handleFiles(files) {
+            if (!isAdmin) {
+                showToast('Diňe admin aýdym ýükläp bilýär!', 'error');
+                return;
+            }
+            
             Array.from(files).forEach(file => {
                 if (!file.type.startsWith('audio/')) {
                     showToast('Diňe ses faýllary ýükläp bolýar!', 'error');
@@ -455,7 +641,6 @@
                         let title = file.name.replace(/\.[^/.]+$/, '');
                         let artist = 'Näbelli Ýaradyjy';
                         
-                        // Ady we ýaradyjyny aýyrmak
                         const match = file.name.match(/^(.+?)\s*[-–]\s*(.+?)\.[^.]+$/);
                         if (match) {
                             artist = match[1].trim();
@@ -474,38 +659,36 @@
                         
                         saveSongToDB(song);
                     });
-                    
-                    audioTemp.addEventListener('error', () => {
-                        showToast('Faýl ýüklenmedi: ' + file.name, 'error');
-                    });
                 };
-                
-                reader.onerror = () => {
-                    showToast('Faýl okalmady: ' + file.name, 'error');
-                };
-                
                 reader.readAsDataURL(file);
             });
         }
-
+        
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileInput = document.getElementById('fileInput');
+        
         uploadBtn.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
         
-        dropZone.addEventListener('dragover', (e) => {
+        // Drag and drop (diňe admin üçin)
+        const uploadSection = document.getElementById('uploadSection');
+        uploadSection.addEventListener('dragover', (e) => {
+            if (!isAdmin) return;
             e.preventDefault();
-            dropZone.classList.add('dragover');
+            uploadSection.classList.add('dragover');
         });
         
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('dragover');
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
         });
         
-        dropZone.addEventListener('drop', (e) => {
+        uploadSection.addEventListener('drop', (e) => {
+            if (!isAdmin) return;
             e.preventDefault();
-            dropZone.classList.remove('dragover');
+            uploadSection.classList.remove('dragover');
             handleFiles(e.dataTransfer.files);
         });
-
+        
         function renderSongs() {
             let filtered = [...songs];
             
@@ -539,12 +722,13 @@
             musicGrid.innerHTML = filtered.map((song, idx) => {
                 const originalIndex = songs.findIndex(s => s.id === song.id);
                 const isCurrent = originalIndex === currentSongIndex;
+                const showDelete = isAdmin ? 'show' : '';
                 return `
                     <div class="music-card ${isCurrent ? 'playing' : ''}" data-id="${song.id}">
-                        <div class="card-visual">
+                        <div class="card-visual" onclick="window.playSongById(${song.id})">
                             <i class="fas fa-music"></i>
                             <div class="play-overlay">
-                                <button class="play-btn-large" onclick="window.playSongById(${song.id})">
+                                <button class="play-btn-large">
                                     <i class="fas ${isCurrent && isPlaying ? 'fa-pause' : 'fa-play'}"></i>
                                 </button>
                             </div>
@@ -561,7 +745,7 @@
                                     <button class="action-btn" onclick="window.downloadSong(${song.id})" title="Ýükle">
                                         <i class="fas fa-download"></i>
                                     </button>
-                                    <button class="action-btn delete" onclick="window.deleteSongById(${song.id})" title="Poz">
+                                    <button class="action-btn delete ${showDelete}" onclick="window.deleteSongById(${song.id})" title="Poz">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -589,6 +773,10 @@
         };
         
         window.deleteSongById = (id) => {
+            if (!isAdmin) {
+                showToast('Diňe admin aýdym pozip bilýär!', 'error');
+                return;
+            }
             if (confirm('Bu aýdymy pozmak isleýändigiňize ynanýarsyňyzmy?')) {
                 deleteSongFromDB(id);
             }
@@ -635,6 +823,21 @@
             }
         }
         
+        // DOM Elementler
+        const musicGrid = document.getElementById('musicGrid');
+        const searchInput = document.getElementById('searchInput');
+        const playerBar = document.getElementById('playerBar');
+        const playBtn = document.getElementById('playBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const currentTimeEl = document.getElementById('currentTime');
+        const totalTimeEl = document.getElementById('totalTime');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const playerTitle = document.getElementById('playerTitle');
+        const playerArtist = document.getElementById('playerArtist');
+        
         playBtn.addEventListener('click', togglePlay);
         prevBtn.addEventListener('click', () => {
             if (!songs.length) return;
@@ -680,44 +883,4 @@
         
         function updateStats() {
             document.getElementById('totalSongs').textContent = songs.length;
-            const uniqueArtists = new Set(songs.map(s => s.artist));
-            document.getElementById('totalArtists').textContent = uniqueArtists.size;
-            const totalSeconds = songs.reduce((acc, s) => acc + (s.duration || 0), 0);
-            document.getElementById('totalDuration').textContent = formatTime(totalSeconds);
-        }
-        
-        function formatTime(seconds) {
-            if (!seconds || isNaN(seconds)) return '0:00';
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
-        
-        function showToast(message, type = 'success') {
-            const toastEl = document.getElementById('toast');
-            const toastMsg = document.getElementById('toastMessage');
-            toastMsg.textContent = message;
-            toastEl.className = 'toast show ' + (type === 'error' ? 'error' : '');
-            setTimeout(() => toastEl.classList.remove('show'), 3000);
-        }
-        
-        // Klawiatura kontrolý
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
-                e.preventDefault();
-                togglePlay();
-            }
-            if (e.code === 'ArrowLeft' && e.ctrlKey) {
-                e.preventDefault();
-                prevBtn.click();
-            }
-            if (e.code === 'ArrowRight' && e.ctrlKey) {
-                e.preventDefault();
-                nextBtn.click();
-            }
-        });
-        
-        audio.volume = 0.7;
-    </script>
-</body>
-</html>
+            const unique
